@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <libgen.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -15,7 +16,8 @@
 
 pid_t pid = -1;
 int fd = -1;
-char * shared_memory_ptr = NULL;
+char *shared_memory_ptr = NULL;
+char *execute_name = NULL;
 const char *shared_memory_name;
 struct timeval timet_t = {0};
 
@@ -26,7 +28,7 @@ int main(int argc, char *argv[])
 {
     if (argc == 1)
     {
-        fprintf(stderr, "Usage: ./%s <program name>\n", argv[0]);
+        fprintf(stderr, "usage: %s <program name>\n", argv[0]);
         return 0;
     }
 
@@ -38,6 +40,14 @@ int main(int argc, char *argv[])
 
     atexit(__clean_up);
 
+
+    execute_name = strdup(basename(argv[1]));
+    if (!execute_name)  
+    {
+        fprintf(stderr, "%d: %s\n", __LINE__, strerror(errno));
+        return 1;
+    }
+        
     // Make shared memory so that child process can access it too
 
     // Retrieve shared memory object
@@ -62,7 +72,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "%d: %s\n", __LINE__, strerror(errno));
         return 1;
     }
-   
 
     pid = fork();
     if (pid == -1) 
@@ -82,14 +91,17 @@ int main(int argc, char *argv[])
         sprintf(shared_memory_ptr, "%ld", timet_t.tv_usec);
 
         // Execute program
-        execl("~/", argv[1], NULL);
+        if (execl(argv[1], execute_name, (char *)NULL) == -1)
+        {
+            fprintf(stderr, "%d: %s\n", __LINE__, strerror(errno));
+            return 1;
+        }   
     }
 
     // Parent process
     if (pid > 0)
     {
-        char *time = NULL;
-        int status;
+        int status = -1;
         long init_time;
         long time_result;
         waitpid(pid, &status, 0);
@@ -98,16 +110,9 @@ int main(int argc, char *argv[])
         gettimeofday(&timet_t, NULL);
 
         // Read from memory to get initial time
-        time = (char *) malloc(strlen(shared_memory_ptr) + 1);
-        if (!time)
-        {
-            fprintf(stderr, "%d: %s\n", __LINE__, strerror(errno));
-            return 1;
-        }
-
-        timet_t.tv_usec = atol(time);
+        init_time = atol(shared_memory_ptr);
         time_result = timet_t.tv_usec - init_time;
-        fprintf(stdout, "time taken: %ld\n", time_result);
+        fprintf(stdout, "time taken: %ld microseconds\n", time_result);
     }
 
     return 0;
@@ -124,6 +129,11 @@ void __clean_up()
     if (shared_memory_ptr) 
     {
         munmap(shared_memory_ptr, SIZE);
+    }
+       
+    if (execute_name)
+    {
+        free(execute_name);
     }
 }
     
