@@ -1,7 +1,12 @@
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdbool.h>
+
 #define MAX_LINE 80
 #define BUFFER_SIZE 1024
 #define MAX_ARG 40
@@ -15,23 +20,23 @@ int main(int argc, char *argv[])
 
     while (run)
     {
+		pid_t pid = 0;
         fflush(stdout);
         fprintf(stdout, "\nosh>");
 
 		size_t arg_count = 0;
 
+		// TODO: count how many white spaces has been passed in 
+		// to calculate arg and use malloc instead
         // Read user input
 		while (fgets(buffer, BUFFER_SIZE - 1, stdin))
 		{
 			const char * argument = buffer;
 			// Parse into array
 			// Malloc every arg? or is it inefficient?
-			while (sscanf(argument, "%s", arg_array[arg_count]) != EOF) 
+			while (arg_count < MAX_ARG - 1 && sscanf(argument, "%s", arg_array[arg_count]) != EOF) 
 			{
 				arg_count ++;
-				// Just ignore the rest of the arg
-				if (arg_count >= MAX_ARG)
-					break;
 		
 				// No more arguments
 				argument = strchr(argument, ' ');
@@ -39,15 +44,45 @@ int main(int argc, char *argv[])
 					break;
 			}
 
-			for (size_t i = 0; i < arg_count; i++) 
-				printf("%s ", arg_array[i]);
+			if (arg_count >= MAX_ARG - 1)
+				break;
+
 
 			// User pressed enter; Loop exit condition 
 			if (strchr(buffer, '\n')) 
 				break;
 		}
 
+		arg_array[arg_count][0] = '\0';
+
         // Fork child process
+		pid = fork();
+		if (pid == -1)
+		{
+			//error
+			return 1;
+		}
+
+		// Parent
+		if (pid > 0)
+		{
+			int status = 0;
+			waitpid(pid, &status, 0);
+		}
+
+		// Child
+		if (pid == 0) 	
+		{
+			char *pArg = arg_array[1];
+			char **const ppArg = &pArg;
+			if (execvp(arg_array[0], ppArg) == -1)
+			{
+				printf("%s\n", arg_array[0]);
+				printf("%s\n", *ppArg);
+				exit(1);
+			//error
+			}	
+		}
         // Child invoke exec
 
         // parent will invoke wait() unless command included &
