@@ -23,6 +23,7 @@ int main(int argc, char *argv[])
     {
 		pid_t pid = 0;
 		bool new_line = false;
+		bool run_in_background = false;
 		size_t index = 0;
 
         fflush(stdout);
@@ -52,15 +53,21 @@ int main(int argc, char *argv[])
 
 		// check if exit before anything else
 		if (strcmp(arg_array[0], "exit") == 0)
-		{
 			return 0;
+
+		// check if process should run in background
+		// replace the & sign since it's not part of the option argument
+		if (strcmp("&", arg_array[index-1]) == 0)
+		{
+			index--;
+			arg_array[index] = NULL;
+			run_in_background = true;
 		}
 
-        // fork child process
 		pid = fork();
 		if (pid == -1)
 		{
-			//error
+			// TODO
 			return 1;
 		}
 
@@ -68,17 +75,21 @@ int main(int argc, char *argv[])
 		if (pid > 0)
 		{
 			int status = 0;
-			waitpid(pid, &status, 0);
+			// don't wait for background process
+			if (!run_in_background)
+				waitpid(pid, &status, 0);
 		}
 
 		// child
 		if (pid == 0) 	
 		{
+			// group shouldn't parent process if background
+			if (run_in_background)	
+				setpgid(0,0);
+			
 			if (execvp(arg_array[0], arg_array) == -1)
 				exit(1);
 		}
-
-        // parent will invoke wait() unless command included &
 	}
 
     return 0;
