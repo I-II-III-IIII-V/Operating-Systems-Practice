@@ -28,12 +28,12 @@ int main(int argc, char *argv[])
         fflush(stdout);
         fprintf(stdout, "osh>");
 
-        // Read user input
+        // read user input
 		while (!new_line && fgets(buffer, BUFFER_SIZE - 1, stdin))
 		{
 			const char * argument = buffer;
 
-			// User pressed enter; Loop exit condition 
+			// user pressed enter; Loop exit condition 
 			if (strchr(buffer, '\n')) 
 				new_line = true;
 
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 			while (arg_array[index] != NULL)
 			{
 				index++;
-				// Too many arguments provided!
+				// too many arguments provided!
 				if (index == MAX_ARG - 1)
 					arg_array[index] = NULL;
 
@@ -50,7 +50,13 @@ int main(int argc, char *argv[])
 			}
 		}
 
-        // Fork child process
+		// check if exit before anything else
+		if (strcmp(arg_array[0], "exit") == 0)
+		{
+			return 0;
+		}
+
+        // fork child process
 		pid = fork();
 		if (pid == -1)
 		{
@@ -58,14 +64,14 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		// Parent
+		// parent
 		if (pid > 0)
 		{
 			int status = 0;
 			waitpid(pid, &status, 0);
 		}
 
-		// Child
+		// child
 		if (pid == 0) 	
 		{
 			if (execvp(arg_array[0], arg_array) == -1)
