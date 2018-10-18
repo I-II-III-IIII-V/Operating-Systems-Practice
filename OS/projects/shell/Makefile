@@ -5,4 +5,4 @@ shell: shell.c
 	$(CC) -o shell shell.c
 
 .PHONY: clean
-	rm *.o shell
+	rm shell
